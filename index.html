@@ -2,576 +2,499 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPSC MO Interview Prep Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>For My Love</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Calm Harmony -->
-    <!-- Application Structure Plan: A tabbed, single-page dashboard structure was chosen to transform the linear source document into an interactive study tool. This architecture segments the content into logical sections: a 'Dashboard' for a high-level overview and key advice, a 'Question Bank' for focused study with filtering, a 'Role Comparison' for clear side-by-side analysis, and an 'Interview Day Guide' for practical logistics. This non-linear approach allows users to navigate based on their needs, preventing information overload and facilitating targeted revision, which is more effective than scrolling through a long document. The primary interactions are tab-based navigation and category filtering within the question bank. A new 'Mock Interview' tab was added to leverage the Gemini API for interactive, AI-powered practice. -->
-    <!-- Visualization & Content Choices: 
-        - Report Info: Question topic frequency -> Goal: Inform -> Viz: Donut Chart -> Interaction: Hover for details -> Justification: Gives a quick visual sense of topic importance. -> Library: Chart.js/Canvas.
-        - Report Info: All interview questions -> Goal: Organize/Explore -> Presentation: Categorized, filterable cards with expandable answers and a Gemini-powered "Deeper Dive" -> Interaction: Click category buttons to filter, search to highlight, click to reveal answers, click "Deeper Dive" for detailed analysis. -> Justification: Allows for targeted, active studying and self-testing, with an option for AI-generated advanced insights. -> Library/Method: Vanilla JS, Tailwind, Gemini API.
-        - New Feature: Mock Interview Simulator -> Goal: Practice & Improve -> Presentation: A dedicated tab with question display, user input, and feedback area. -> Interaction: User types answer, clicks button to get AI feedback. -> Justification: Actively engages the user in a simulated interview environment, providing personalized, constructive criticism to improve their answering technique. -> Library/Method: Vanilla JS, Gemini API.
-        - Report Info: PHC vs. CHC Pros/Cons -> Goal: Compare -> Presentation: Side-by-side columns -> Interaction: None -> Justification: Provides a direct, easy-to-understand comparison of the two roles. -> Library/Method: HTML/Tailwind.
-        - Report Info: Do's and Don'ts -> Goal: Inform -> Presentation: Styled list with icons -> Interaction: None -> Justification: Makes critical advice scannable and memorable. -> Library/Method: HTML/Tailwind/Unicode.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Indie+Flower&display=swap" rel="stylesheet">
+    
     <style>
+        /* --- Core Layout --- */
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #FDFBF8; /* Warm off-white */
-            color: #4A4A4A;
+            font-family: 'Playfair Display', serif;
+            background: linear-gradient(to bottom, #fdf2f8, #fbcfe8);
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+            height: 100dvh; /* Dynamic viewport height for mobile */
+            width: 100vw;
         }
-        .tab-active {
-            background-color: #8D9B9A; /* Muted Slate Blue/Green */
-            color: #FFFFFF;
-            font-weight: 600;
+
+        .handwriting { font-family: 'Dancing Script', cursive; }
+        .notebook-font { font-family: 'Indie Flower', cursive; }
+
+        /* --- Z-Index Hierarchy (Crucial for interaction) --- */
+        #flowerCanvas { z-index: 1; pointer-events: none; } /* Background */
+        #envelope-stage { z-index: 50; } /* Top priority initially */
+        .stage { z-index: 40; } /* Content stages */
+
+        /* --- Envelope Styles --- */
+        .envelope-wrapper {
+            cursor: pointer;
+            padding: 20px; /* Increase hit area */
         }
-        .tab-inactive {
-            background-color: #EAE7E1; /* Light Beige */
-            color: #5D5D5D;
-        }
-        .content-section {
-            display: none;
-        }
-        .content-section.active {
-            display: block;
-        }
-        .category-button-active {
-            background-color: #B0A99A; /* Muted Taupe */
-            color: #FFFFFF;
-            font-weight: 500;
-        }
-        .question-card mark {
-            background-color: #FDE68A;
-            padding: 2px;
-            border-radius: 3px;
-        }
-        .answer-content {
-            display: none;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e5e7eb;
-        }
-        .chart-container {
+
+        .envelope {
             position: relative;
-            width: 100%;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 400px;
+            width: 300px;
+            height: 200px;
+            background: #e11d48;
+            margin: 0 auto;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: transform 1s ease;
         }
-        @media (min-width: 768px) {
-            .chart-container {
-                height: 350px;
-            }
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #8D9B9A;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .gemini-modal-overlay {
-            position: fixed;
+
+        /* The Flap */
+        .flap {
+            position: absolute;
             top: 0;
             left: 0;
-            right: 0;
+            width: 100%;
+            height: 100%;
+            background: #be123c;
+            clip-path: polygon(0 0, 50% 50%, 100% 0);
+            transform-origin: top;
+            transition: transform 0.6s ease 0.4s, z-index 0.2s;
+            z-index: 3;
+            border-radius: 5px 5px 0 0;
+        }
+
+        /* Open State Animations */
+        .envelope.open .flap {
+            transform: rotateX(180deg);
+            z-index: 0;
+        }
+        
+        .envelope.open {
+            transform: translateY(100px);
+        }
+
+        /* The Pocket (Front Triangle) */
+        .pocket-front {
+            position: absolute;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
+            left: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 100px 150px 0 150px;
+            border-color: transparent #fb7185 #f43f5e #fb7185;
+            z-index: 4; /* High z-index to look right, but ensure click passes if needed */
+            pointer-events: none; /* Let clicks pass through to envelope */
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* The Letter Inside (Preview) */
+        .letter-preview {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            right: 20px;
+            height: 160px;
+            background: white;
+            z-index: 1;
+            transition: transform 0.8s ease 1s;
+            border-radius: 5px;
+        }
+        
+        .envelope.open .letter-preview {
+            transform: translateY(-120px);
+            z-index: 2;
+        }
+
+        /* --- Overlay Stages (Letters & Notebook) --- */
+        .stage {
+            position: fixed;
+            inset: 0;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            background: rgba(255, 255, 255, 0.4); /* Slight backdrop */
         }
-        .gemini-modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 0.75rem;
-            max-width: 90%;
-            width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
+
+        .stage.active { opacity: 1; pointer-events: auto; }
+        .stage.hidden-left { transform: translateX(-110%); opacity: 0; }
+        
+        /* Glassmorphism Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
+
+        /* --- Notebook Styles --- */
+        .notebook {
+            width: 90%; max-width: 380px; height: 550px;
+            background: #fff;
+            background-image: linear-gradient(#e5e5e5 1px, transparent 1px);
+            background-size: 100% 2rem;
+            position: relative;
+            box-shadow: 10px 10px 30px rgba(0,0,0,0.15);
+            border-radius: 4px;
+            transition: transform 0.3s ease;
+        }
+        .notebook::before {
+            content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 25px;
+            background: radial-gradient(circle at center, #333 30%, transparent 32%) 0 0;
+            background-size: 100% 2rem; border-right: 2px solid rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .red-margin {
+            position: absolute; left: 45px; top: 0; bottom: 0; border-left: 2px solid #fca5a5;
+        }
+        .notebook-page {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            padding: 3rem 1.5rem 2rem 3.5rem;
+            box-sizing: border-box;
+            display: none; flex-direction: column;
+            transform-origin: left center;
+            animation: fadeInPage 0.5s ease;
+        }
+        .notebook-page.active-page { display: flex; }
+        
+        @keyframes fadeInPage {
+            from { opacity: 0; transform: rotateY(-5deg); }
+            to { opacity: 1; transform: rotateY(0); }
+        }
+
+        /* --- Decorations --- */
+        .heart-seal { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1) translate(-50%, -50%); } 50% { transform: scale(1.1) translate(-50%, -50%); } }
+        
+        #flowerCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        .sticker { position: absolute; pointer-events: none; opacity: 0.9; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.1)); }
     </style>
 </head>
-<body class="antialiased">
+<body class="relative overflow-hidden">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-[#4A5C5A]">GPSC Medical Officer Interview Dashboard</h1>
-            <p class="mt-2 text-lg text-gray-600">An Interactive Guide to Your Interview Preparation</p>
-        </header>
+    <!-- Background Canvas -->
+    <canvas id="flowerCanvas"></canvas>
 
-        <nav id="tabs" class="flex flex-wrap justify-center gap-2 mb-8">
-            <button data-tab="dashboard" class="px-4 py-2 rounded-lg text-sm md:text-base transition-colors duration-300 tab-active">Dashboard</button>
-            <button data-tab="questions" class="px-4 py-2 rounded-lg text-sm md:text-base transition-colors duration-300 tab-inactive">Question Bank</button>
-            <button data-tab="roles" class="px-4 py-2 rounded-lg text-sm md:text-base transition-colors duration-300 tab-inactive">Role Comparison</button>
-            <button data-tab="guide" class="px-4 py-2 rounded-lg text-sm md:text-base transition-colors duration-300 tab-inactive">Interview Day Guide</button>
-        </nav>
-
-        <main id="tab-content">
-            <section id="dashboard" class="content-section active">
-                <div class="space-y-8">
-                    <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
-                        <h2 class="text-2xl font-semibold text-[#4A5C5A] mb-4">Core Principles for Success</h2>
-                         <p class="mb-4 text-gray-700">This section provides a high-level overview of the key advice from the source material. The main takeaway is that the interview tests practical application and mental composure more than pure theoretical knowledge. The chart visualizes the distribution of question topics, helping you focus your preparation on the most frequently asked areas.</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="prose max-w-none">
-                                <h4>Mindset & Approach</h4>
-                                <ul>
-                                    <li><strong>Presence of Mind is Key:</strong> The interview values your on-the-spot thinking and approach over rote memorization.</li>
-                                    <li><strong>Presentation Matters:</strong> How you structure and deliver your answers is as important as the content itself.</li>
-                                    <li><strong>Rural Challenges:</strong> Be aware of the primary challenge in rural areas: a lack of resources (supplies, specialists, support).</li>
-                                    <li><strong>Stay Calm:</strong> The experience is designed to be engaging. Don't take unnecessary stress.</li>
-                                </ul>
-                            </div>
-                            <div class="prose max-w-none">
-                                <h4>What NOT to Do</h4>
-                                <ul class="space-y-2">
-                                    <li class="flex items-start"><span class="mr-2 text-red-500 font-bold">✗</span> Don't arrive late or appear unorganized.</li>
-                                    <li class="flex items-start"><span class="mr-2 text-red-500 font-bold">✗</span> Don't bad-mouth past employers or lie about qualifications.</li>
-                                    <li class="flex items-start"><span class="mr-2 text-red-500 font-bold">✗</span> Don't give one-word answers or interrupt the interviewer.</li>
-                                    <li class="flex items-start"><span class="mr-2 text-red-500 font-bold">✗</span> Don't forget to turn off your cell phone.</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
-                        <h2 class="text-2xl font-semibold text-center text-[#4A5C5A] mb-4">Interview Question Topic Distribution</h2>
-                        <div class="chart-container">
-                            <canvas id="topicChart"></canvas>
-                        </div>
-                    </div>
+    <!-- 1. Envelope Stage (Top Layer Initially) -->
+    <div id="envelope-stage" class="absolute inset-0 flex flex-col items-center justify-center">
+        <!-- Added a wrapper with a click handler -->
+        <div id="envelope-click-target" class="envelope-wrapper">
+            <div class="envelope" id="mainEnvelope">
+                <div class="flap"></div>
+                <div class="pocket-front"></div>
+                
+                <!-- Preview Letter Inside -->
+                <div class="letter-preview flex flex-col items-center justify-center p-4 shadow-sm">
+                    <p class="handwriting text-2xl text-gray-800">For You Rin ❤️</p>
+                    <div class="w-full h-1 bg-gray-200 mt-2 mb-2 rounded"></div>
+                    <div class="w-2/3 h-1 bg-gray-200 rounded"></div>
                 </div>
-            </section>
+
+                <!-- Seal -->
+                <div class="absolute top-1/2 left-1/2 z-10 heart-seal bg-white rounded-full p-2 shadow-md">
+                    <svg class="h-8 w-8 text-red-500 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                </div>
+            </div>
             
-            <section id="questions" class="content-section">
-                 <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
-                    <h2 class="text-2xl font-semibold text-[#4A5C5A] mb-2">Interview Question Bank</h2>
-                    <p class="mb-4 text-gray-700">This is a comprehensive collection of questions sourced from past interviews. Use the category filters to focus on specific subjects for targeted revision. Questions marked with a red asterisk <span class="text-red-500 font-bold">*</span> are from the original source document.</p>
-                    <div class="mb-6 flex flex-col sm:flex-row gap-4">
-                        <input type="text" id="searchInput" placeholder="Search questions..." class="w-full sm:w-1/2 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#8D9B9A] focus:outline-none">
-                        <div id="category-filters" class="flex flex-wrap gap-2">
-                            <button class="px-3 py-1.5 text-sm rounded-md transition-colors duration-200 category-button-active" data-category="all">All Topics</button>
-                        </div>
-                    </div>
-                    <div id="question-list" class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                    </div>
-                 </div>
-            </section>
-
-            <section id="roles" class="content-section">
-                <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
-                    <h2 class="text-2xl font-semibold text-[#4A5C5A] mb-4">Role Comparison: PHC vs. CHC/SDH</h2>
-                     <p class="mb-6 text-gray-700">Understanding the differences between working at a Primary Health Centre (PHC) and a Community Health Centre (CHC) or Sub-District Hospital (SDH) is crucial. This section presents a side-by-side comparison of the pros and cons for each setting, helping you form an informed perspective on your potential work environment.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                            <h3 class="text-xl font-semibold mb-3 text-green-700">PHC (Primary Health Centre)</h3>
-                            <div class="space-y-4">
-                                <div>
-                                    <h4 class="font-semibold">Pros</h4>
-                                    <ul class="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                                        <li>Regular hours (9 to 6 job)</li>
-                                        <li>No emergency, MLC, or PM duties</li>
-                                        <li>Lower patient load</li>
-                                        <li>Weekends and festival days off</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold">Cons</h4>
-                                    <ul class="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                                        <li>Limited clinical exposure</li>
-                                        <li>Heavy focus on statistical/program work</li>
-                                        <li>Requires staying in a village or commuting</li>
-                                        <li>May feel less like a "doctor" due to less clinical work</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-semibold mb-3 text-blue-700">CHC / SDH (Community Health Centre)</h3>
-                             <div class="space-y-4">
-                                <div>
-                                    <h4 class="font-semibold">Pros</h4>
-                                    <ul class="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                                        <li>Maintains clinical touch and skills</li>
-                                        <li>Can settle with family in a town/city</li>
-                                        <li>Duty can be managed with other doctors</li>
-                                        <li>Feel more like a practicing doctor</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold">Cons</h4>
-                                    <ul class="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                                        <li>MLC and PM duties are required</li>
-                                        <li>Handles emergency cases</li>
-                                        <li>No fixed Sunday/festival holidays</li>
-                                        <li>Must attend court for MLC cases, slight political pressure</li>
-                                        <li>Can be hectic if understaffed</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            
-            <section id="guide" class="content-section">
-                <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
-                    <h2 class="text-2xl font-semibold text-[#4A5C5A] mb-4">Interview Day Guide & Procedure</h2>
-                    <p class="mb-6 text-gray-700">This section outlines the step-by-step process for your interview day, from arrival to the viva itself. Knowing the logistics beforehand can help reduce anxiety and ensure you are well-prepared. Pay close attention to the rules regarding personal items and identification to ensure a smooth process.</p>
-                    <div class="space-y-4">
-                        <div class="p-4 bg-gray-50 rounded-lg border">
-                            <h3 class="font-semibold text-lg">Arrival & Check-in</h3>
-                            <ul class="list-disc list-inside mt-2 text-gray-700">
-                                <li><strong>Arrival Time:</strong> Reach by 8:15 AM. Entry begins at 8:30 AM.</li>
-                                <li><strong>Documents:</strong> Show your call letter at the gate. Bring your application form, all required xerox copies, and a pen.</li>
-                            </ul>
-                        </div>
-                        <div class="p-4 bg-gray-50 rounded-lg border">
-                            <h3 class="font-semibold text-lg">Pre-Interview Process</h3>
-                             <ul class="list-disc list-inside mt-2 text-gray-700">
-                                <li>The staff will explain the document verification order.</li>
-                                <li>You will be asked to choose a unique ID and a panel number via a draw (chits). Your turn is not based on your roll number.</li>
-                            </ul>
-                        </div>
-                        <div class="p-4 bg-gray-50 rounded-lg border">
-                            <h3 class="font-semibold text-lg">The Viva (Interview)</h3>
-                             <ul class="list-disc list-inside mt-2 text-gray-700">
-                                <li><strong>Anonymity:</strong> You are not allowed to say your name. Use the unique code you were given.</li>
-                                <li><strong>No Personal Items:</strong> Watch, pen, documents, etc., are not allowed inside the interview room.</li>
-                                <li><strong>Structure:</strong> The interview is divided into verification and viva. There are 3 panels with 4 examiners each. Each examiner asks questions for 5-6 minutes.</li>
-                                <li><strong>Introduction:</strong> Be prepared to state when you completed your UG and what your current job is.</li>
-                                 <li><strong>Duration:</strong> The interview lasts approximately 20 minutes per candidate.</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
+            <div class="mt-12 text-center">
+                <p class="text-pink-700 font-bold animate-pulse text-xl tracking-widest bg-white/50 px-4 py-1 rounded-full inline-block">TAP TO OPEN</p>
+            </div>
+        </div>
     </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const questionsData = [
-        { category: 'Situational', text: 'As a Medical Officer, what will you do if malaria cases increase in your area?', answer: '1. <strong>Immediate Reporting:</strong> Report the surge to the District Health Officer (DHO).<br>2. <strong>Investigation:</strong> Deploy ASHA/MPHWs for active surveillance (fever surveys) and blood smear collection.<br>3. <strong>Vector Control:</strong> Initiate anti-larval (e.g., Temephos) and anti-adult (e.g., indoor residual spraying) measures.<br>4. <strong>Treatment:</strong> Ensure adequate stock of anti-malarial drugs at the PHC and sub-centers.<br>5. <strong>IEC:</strong> Conduct Information, Education, and Communication activities on prevention (e.g., using mosquito nets, avoiding water stagnation).', original: true },
-        { category: 'Situational', text: 'A Sarpanch wants to organize a mela (fair). As an MO, what is your responsibility?', answer: '1. <strong>Pre-event Planning:</strong> Ensure proper sanitation, safe drinking water (chlorination), and food hygiene standards.<br>2. <strong>On-site Medical Post:</strong> Set up a first-aid post with emergency medicines and an ambulance on standby.<br>3. <strong>Surveillance:</strong> Be prepared for potential outbreaks of food poisoning or water-borne diseases.<br>4. <strong>Health Promotion:</strong> Use the gathering for IEC activities like NCD screening or immunization awareness.<br>5. <strong>Waste Management:</strong> Advise on proper biomedical and general waste disposal.', original: true },
-        { category: 'Situational', text: 'How would you manage a bus accident?', answer: 'This is a Mass Casualty Incident. 1. <strong>Triage:</strong> Implement the START (Simple Triage and Rapid Treatment) system to categorize victims (Red-Immediate, Yellow-Delayed, Green-Minor, Black-Deceased).<br>2. <strong>Command & Control:</strong> Establish a command post and coordinate with police, fire department, and higher health authorities.<br>3. <strong>Communication:</strong> Inform the district hospital to prepare for incoming patients. Arrange for ambulances.<br>4. <strong>Treatment:</strong> Provide immediate life-saving first aid to the "Red" category patients and stabilize them for transport.<br>5. <strong>Documentation:</strong> Ensure proper documentation of all victims and the actions taken.', original: true },
-        { category: 'Situational', text: 'There is a cholera outbreak in your area, what will you do?', answer: '1. <strong>Verification & Reporting:</strong> Confirm the outbreak with lab tests (hanging drop, culture) and immediately report to higher authorities.<br>2. <strong>Case Management:</strong> Set up a treatment center to manage dehydration with ORS and IV fluids. Administer appropriate antibiotics (e.g., Doxycycline).<br>3. <strong>Investigation:</strong> Identify the source of the outbreak (likely contaminated water or food).<br>4. <strong>Environmental Control:</strong> Supervise chlorination of all local water sources. Promote handwashing and safe food practices through IEC.<br>5. <strong>Surveillance:</strong> Conduct active house-to-house surveillance to find new cases early.', original: true },
-        { category: 'Role-Based', text: 'What is the role of a Medical Officer (MO) at a PHC? (Very important)', answer: 'The role is multifaceted: 1. <strong>Clinical:</strong> Providing curative care at the OPD. 2. <strong>Administrative:</strong> Managing PHC staff, inventory, and finances. 3. <strong>Public Health:</strong> Implementing all national health programs, overseeing immunization, MCH services, and disease surveillance. 4. <strong>Training:</strong> Training and supervising paramedical staff like MPHWs and ASHA workers. 5. <strong>Community Engagement:</strong> Acting as a leader in health matters for the community.', original: true },
-        { category: 'Role-Based', text: 'What are your medicolegal duties as a doctor?', answer: 'Key duties include: Examining and documenting injuries in cases of assault or accidents, conducting post-mortem examinations (if authorized), providing expert testimony in court, examining victims of sexual assault, determining age, and issuing various medical certificates while following legal protocols. Maintaining confidentiality is paramount.', original: true },
-        { category: 'PSM', text: 'Define: Pandemic, Epidemic, Endemic.', answer: '• <strong>Endemic:</strong> The constant presence of a disease within a specific geographic area or population (e.g., Malaria in certain districts).<br>• <strong>Epidemic:</strong> The occurrence of more cases of a disease than expected in a given area over a particular period.<br>• <strong>Pandemic:</strong> An epidemic that has spread over several countries or continents, affecting a large number of people (e.g., COVID-19).', original: true },
-        { category: 'PSM', text: 'Define IMR & MMR and their causes in Gujarat.', answer: '• <strong>IMR (Infant Mortality Rate):</strong> The number of deaths of children under one year of age per 1000 live births. Key causes include low birth weight, birth asphyxia, pneumonia, and diarrheal diseases.<br>• <strong>MMR (Maternal Mortality Rate):</strong> The number of maternal deaths per 100,000 live births. Key causes include hemorrhage, sepsis, hypertensive disorders of pregnancy, and unsafe abortions.', original: true },
-        { category: 'Programs & Policies', text: 'Describe the Immunization Schedule.', answer: 'According to the National Immunization Schedule (NIS) India:<br>• <strong>At Birth:</strong> BCG, OPV-0, Hep B-0.<br>• <strong>At 6, 10, 14 weeks:</strong> OPV 1,2,3; Pentavalent 1,2,3; Rotavirus 1,2,3; fIPV 1,2.<br>• <strong>At 9 months:</strong> MR-1, PCV Booster.<br>• <strong>At 16-24 months:</strong> MR-2, OPV Booster, DPT Booster-1.<br>• <strong>At 5-6 years:</strong> DPT Booster-2.<br>• <strong>At 10 & 16 years:</strong> Td vaccine.', original: true },
-        { category: 'Community Health', text: 'What is the full form and role of an ASHA?', answer: '<strong>Full Form:</strong> Accredited Social Health Activist.<br><strong>Role:</strong> She is a community health volunteer who acts as a crucial link between the community and the public health system. Her roles include creating health awareness, counseling on maternal & child health, escorting pregnant women for institutional delivery, providing basic first-aid and medications (like ORS), and mobilizing the community for health programs like immunization.', original: true },
-        { category: 'Community Health', text: 'What are the population norms for PHC, CHC, and Subcenters?', answer: '• <strong>Sub-Centre:</strong> 5,000 in plain areas and 3,000 in hilly/tribal areas.<br>• <strong>Primary Health Centre (PHC):</strong> 30,000 in plain areas and 20,000 in hilly/tribal areas.<br>• <strong>Community Health Centre (CHC):</strong> 1,20,000 in plain areas and 80,000 in hilly/tribal areas.', original: true },
-        { category: 'Clinical', text: 'Management of Hypertension (HTN) and Diabetes Mellitus (DM).', answer: 'Management follows national guidelines (e.g., NCD program). 1. <strong>Screening:</strong> Opportunistic screening for all adults over 30. 2. <strong>Diagnosis & Treatment:</strong> Confirm diagnosis and initiate treatment with appropriate first-line drugs (e.g., Amlodipine/Telmisartan for HTN, Metformin for DM). 3. <strong>Lifestyle Counseling:</strong> Crucial emphasis on diet, exercise, and reducing salt/sugar intake. 4. <strong>Follow-up:</strong> Regular follow-up at the PHC/HWC to monitor control and check for complications. 5. <strong>Referral:</strong> Refer complicated or uncontrolled cases to higher centers.', original: true },
-        { category: 'Forensic', text: 'Difference between hanging and strangulation.', answer: '• <strong>Hanging:</strong> Constriction of the neck by a ligature where the constricting force is the weight of the body. The ligature mark is typically high on the neck, incomplete, and runs obliquely upwards towards the point of suspension.<br>• <strong>Strangulation:</strong> Constriction of the neck by a ligature where the constricting force is other than the body weight. The ligature mark is typically lower on the neck, complete, and runs horizontally.', original: true }
-    ];
+    <!-- 2. Letter Stage -->
+    <div id="letter-stage" class="stage">
+        <div class="glass-card w-full max-w-md p-8 rounded-2xl m-4 relative flex flex-col min-h-[50vh]">
+            <!-- Decorative Corners -->
+            <div class="absolute top-2 right-2 text-2xl opacity-30">🌸</div>
+            <div class="absolute bottom-2 left-2 text-2xl opacity-30">🌸</div>
 
-    const allQuestionsData = [
-        ...questionsData,
-        { category: 'Situational', text: 'How do you handle kitchen waste?', answer: 'As an MO, I would advise following the principles of waste segregation at the source. 1. <strong>Biodegradable (Wet Waste):</strong> Can be composted in a pit to create manure. 2. <strong>Non-biodegradable (Dry Waste):</strong> Should be further segregated into paper, plastic, metal, etc., for recycling. 3. <strong>Hazardous Waste:</strong> Not typically generated in a kitchen, but any expired chemicals should be disposed of as per local guidelines. The key is promoting segregation for proper disposal and resource recovery.', original: true },
-        { category: 'Role-Based', text: 'How is an MO\'s duty different from a tutor\'s?', answer: 'A <strong>Tutor</strong> in a medical college primarily focuses on teaching, training medical students, and academic research. Their patient care is usually in a tertiary setting with ample resources. An <strong>MO at a PHC</strong> has a much broader, community-oriented role. They are clinicians, administrators, program managers, and public health leaders, often working with significant resource constraints. The focus shifts from individual, specialized care to holistic, preventive, and promotive care for an entire population.', original: true },
-        { category: 'PSM', text: 'What is the Demographic Cycle?', answer: 'The Demographic Transition Model describes population change over time. It has five stages:<br>1. <strong>High Stationary:</strong> High birth rate, high death rate, stable population.<br>2. <strong>Early Expanding:</strong> High birth rate, falling death rate, rapid population growth.<br>3. <strong>Late Expanding:</strong> Falling birth rate, low death rate, slowing population growth.<br>4. <strong>Low Stationary:</strong> Low birth rate, low death rate, stable or slowly increasing population.<br>5. <strong>Declining:</strong> Birth rate is lower than death rate, population declines.', original: true },
-        { category: 'Programs & Policies', text: 'Explain schemes like JSSK, JSY, PMJAY.', answer: '• <strong>JSY (Janani Suraksha Yojana):</strong> A safe motherhood intervention to reduce maternal and neonatal mortality by promoting institutional delivery. It provides a cash incentive to pregnant women who deliver in a health facility.<br>• <strong>JSSK (Janani Shishu Suraksha Karyakram):</strong> Entitles all pregnant women delivering in public health institutions to absolutely free and no-expense delivery, including C-sections. It also provides free care for sick newborns up to one year of age.<br>• <strong>PMJAY (Pradhan Mantri Jan Arogya Yojana):</strong> A flagship health insurance scheme providing coverage of up to ₹5 lakh per family per year for secondary and tertiary care hospitalization.', original: true },
-        { category: 'Clinical', text: 'What is Triage?', answer: 'Triage is the process of prioritizing patients based on the severity of their condition to rationalize the use of resources and maximize the number of survivors, especially during a Mass Casualty Incident. A common system is START (Simple Triage and Rapid Treatment), which uses color codes: Red (Immediate), Yellow (Delayed), Green (Minor), and Black (Deceased).', original: true },
-        { category: 'Forensic', text: 'What will you do in a rape case if the individual denies examination?', answer: '1. <strong>Do Not Force:</strong> Examination cannot be done without consent. I will not proceed with the physical examination.<br>2. <strong>Document Refusal:</strong> I will carefully and clearly document in the medical records that the individual has refused consent for the examination, preferably with their signature or thumb impression on the refusal note.<br>3. <strong>Inform Police:</strong> I will inform the accompanying police officer about the refusal of consent.<br>4. <strong>Provide Other Care:</strong> I will provide any other medical care the person needs and offer counseling services.', original: true },
-        { category: 'GK & Admin', text: 'Who is the Health Minister of India and Gujarat?', answer: 'The Health Minister of India is currently Shri Mansukh Mandaviya. The Health Minister of Gujarat is currently Shri Rushikesh Patel. (Note: This information is subject to change with new government appointments).', original: true },
-        // Newly added questions start here (Batch 1)
-        { category: 'Situational', text: 'You notice a rise in SAM/MAM cases in an Anganwadi area. What are your immediate actions?', answer: '1. <strong>Verification:</strong> Personally visit the Anganwadi to verify the reports and assess the children.<br>2. <strong>Referral:</strong> Refer all Severe Acute Malnutrition (SAM) children to the nearest Nutrition Rehabilitation Center (NRC).<br>3. <strong>Investigation:</strong> Investigate the cause - could be lack of supplementary nutrition, poor feeding practices, or underlying infections.<br>4. <strong>Coordination:</strong> Coordinate with the ICDS department to ensure a consistent supply of take-home rations and supplementary food.<br>5. <strong>Counseling:</strong> Counsel mothers on appropriate feeding practices and hygiene.' },
-        { category: 'Situational', text: 'An ASHA worker reports vaccine hesitancy in a particular village. How do you address this?', answer: '1. <strong>Dialogue:</strong> Visit the village and hold a community meeting. Listen to their concerns and fears without being dismissive.<br>2. <strong>Involve Influencers:</strong> Involve local leaders, religious heads, and village elders to advocate for vaccination.<br>3. <strong>IEC:</strong> Use simple, visual aids to explain the benefits of vaccines and the dangers of vaccine-preventable diseases.<br>4. <strong>Address Misinformation:</strong> Calmly and scientifically debunk any rumors or misinformation that is spreading.<br>5. <strong>Lead by Example:</strong> Ensure all health staff and their families are fully vaccinated.' },
-        { category: 'Clinical', text: 'A patient presents with acute chest pain at your PHC. How do you manage this?', answer: 'This is a medical emergency, potentially an Acute Coronary Syndrome (ACS).<br>1. <strong>ABC:</strong> Ensure Airway, Breathing, and Circulation are stable.<br>2. <strong>Initial Treatment:</strong> Administer Aspirin (325mg chewable), Clopidogrel (300mg), and Atorvastatin (80mg) - the "loading dose". Provide sublingual nitrates if BP is stable. Manage pain with Morphine if needed.<br>3. <strong>ECG:</strong> Take an ECG immediately to look for ST-segment changes.<br>4. <strong>Referral:</strong> Stabilize the patient and immediately refer them to a higher center with cardiac facilities in an ambulance with oxygen support. Inform the receiving hospital.' },
-        { category: 'Clinical', text: 'What are the key components of ANC (Antenatal Care) you would ensure at your PHC?', answer: 'Key components include:<br>1. <strong>At least 4 visits:</strong> One in each trimester, and the fourth in the 9th month.<br>2. <strong>Screening:</strong> For anemia (Hb), hypertension (BP), gestational diabetes (RBS), and infections (HIV, VDRL, HBsAg).<br>3. <strong>Supplementation:</strong> Iron Folic Acid (IFA) tablets and Calcium.<br>4. <strong>Immunization:</strong> Two doses of Td vaccine.<br>5. <strong>Counseling:</strong> On nutrition, danger signs, birth preparedness, and family planning.' },
-        { category: 'PSM', text: 'What is the difference between screening and diagnostic tests?', answer: '• <strong>Screening Test:</strong> Applied to a large, apparently healthy population to identify those who may have a disease but are not yet symptomatic. They are usually cheap and quick but have lower accuracy (e.g., Pap smear for cervical cancer).<br>• <strong>Diagnostic Test:</strong> Applied to individuals suspected of having a disease to confirm or rule out the diagnosis. They are generally more accurate, invasive, and expensive (e.g., Biopsy for cancer confirmation).' },
-        { category: 'PSM', text: 'What are the levels of prevention?', answer: '1. <strong>Primordial:</strong> Preventing the development of risk factors (e.g., promoting healthy lifestyles in children).<br>2. <strong>Primary:</strong> Action taken before the disease occurs (e.g., vaccination, using mosquito nets).<br>3. <strong>Secondary:</strong> Early detection and treatment of disease to halt its progress (e.g., screening for hypertension, treating TB cases).<br>4. <strong>Tertiary:</strong> Limiting disability and rehabilitation after a disease has occurred (e.g., physiotherapy after a stroke).' },
-        { category: 'Programs & Policies', text: 'What is the role of the RBSK (Rashtriya Bal Swasthya Karyakram) team?', answer: 'The RBSK program focuses on early identification and intervention for children from birth to 18 years to cover 4 ‘D’s: Defects at birth, Deficiencies, Diseases, and Developmental delays including disability. The mobile health teams visit Anganwadis and schools to screen children and refer those with conditions for free treatment and management at higher facilities.' },
-        { category: 'Programs & Policies', text: 'What is Nikshay Poshan Yojana?', answer: 'It is a direct benefit transfer (DBT) scheme under the National Tuberculosis Elimination Program (NTEP). Under this scheme, all notified TB patients receive a financial incentive of ₹500 per month for the duration of their treatment to support their nutritional needs.' },
-        { category: 'Community Health', text: 'What is HBNC and who provides it?', answer: '<strong>HBNC stands for Home-Based Newborn Care.</strong> It is a key intervention to reduce neonatal mortality. It involves providing essential care to the newborn and mother at home during the critical first 42 days after delivery. ASHA workers are trained to provide this care through a series of home visits, where they monitor the baby\'s health, promote exclusive breastfeeding, and identify and refer any danger signs.' },
-        // Newly added questions start here (Batch 2)
-        { category: 'Clinical', text: 'How do you manage a case of snake bite at a PHC?', answer: '1. <strong>Reassurance & Immobilization:</strong> Calm the patient and immobilize the bitten limb with a splint.<br>2. <strong>Do NOTs:</strong> Do not apply a tourniquet, cut the wound, or use traditional remedies.<br>3. <strong>20WBCT:</strong> Perform the 20-minute whole blood clotting test to check for signs of envenomation.<br>4. <strong>ASV:</strong> If signs of envenomation are present (local swelling, incoagulable blood, neurotoxicity), start Anti-Snake Venom (ASV) infusion as per national protocol.<br>5. <strong>Monitoring & Referral:</strong> Monitor for adverse reactions to ASV and refer the patient to a higher center for further management.' },
-        { category: 'Clinical', text: 'A patient is brought in with suspected Organophosphate (OP) poisoning. Outline your management.', answer: '1. <strong>Decontamination:</strong> Remove contaminated clothing and wash the skin thoroughly.<br>2. <strong>ABCs:</strong> Ensure a clear airway, provide oxygen, and secure IV access.<br>3. <strong>Antidotes:</strong> Administer Atropine in large, repeated doses until signs of atropinization appear (dry mouth, increased heart rate, pupil dilation). Start Pralidoxime (PAM) if available, especially within 24-48 hours.<br>4. <strong>Supportive Care:</strong> Manage seizures with diazepam. Monitor vitals closely.<br>5. <strong>Gastric Lavage:</strong> Consider if the patient presents within 1-2 hours of ingestion and is conscious.' },
-        { category: 'Situational', text: 'A pregnant woman in active labor arrives at your PHC at night. Your staff nurse is on leave. What do you do?', answer: '1. <strong>Assess the Patient:</strong> Immediately assess the stage of labor, fetal heart sounds, and maternal vitals.<br>2. <strong>Arrange for Transport:</strong> If delivery is not imminent and it is a high-risk case, my priority is to arrange for immediate and safe transport to the nearest FRU/CHC via a 108 ambulance.<br>3. <strong>Provide Support:</strong> While waiting, I will provide supportive care, keep the patient comfortable, and explain the situation calmly.<br>4. <strong>Conduct Delivery if Unavoidable:</strong> If delivery is imminent and transport is not feasible, I will conduct the delivery myself with the help of available staff (e.g., Ayaben), following all aseptic precautions to the best of my ability.<br>5. <strong>Report the Incident:</strong> I will report the staff shortage to my superiors the next day.' },
-        { category: 'Programs & Policies', text: 'What is Kayakalp?', answer: 'Kayakalp is a national initiative launched by the Ministry of Health & Family Welfare to promote cleanliness, hygiene, and infection control practices in public health facilities. It involves a rigorous process of internal and external assessment, with awards and incentives given to facilities that meet high standards, thereby improving the quality of care.' },
-        { category: 'PSM', text: 'What is a cold chain? Describe its components.', answer: 'The cold chain is a system of storing and transporting vaccines at recommended temperatures from the point of manufacture to the point of use. It is essential to maintain vaccine potency.<br><strong>Components:</strong><br>• <strong>Walk-in-Coolers/Freezers (WIC/WIF):</strong> At state/regional level.<br>• <strong>Ice Lined Refrigerators (ILR) & Deep Freezers (DF):</strong> At district and PHC level.<br>• <strong>Cold Boxes:</strong> For transporting vaccines.<br>• <strong>Vaccine Carriers:</strong> For carrying small quantities of vaccines for sessions.<br>• <strong>Ice Packs:</strong> For lining carriers and boxes.' },
-        { category: 'Forensic', text: 'What is a Dying Declaration?', answer: 'A dying declaration is a statement made by a person who is conscious and knows that death is imminent, concerning the cause of their death or the circumstances of the transaction that resulted in their death. It is considered credible and is admissible as evidence in court under the Indian Evidence Act, even without an oath.' },
-        { category: 'GK & Admin', text: 'What is the difference between a District Collector and a DDO?', answer: '• <strong>District Collector/Magistrate (DC/DM):</strong> The chief executive and administrative head of the district. Responsible for law and order, revenue collection, and general administration. Belongs to the Indian Administrative Service (IAS).<br>• <strong>District Development Officer (DDO):</strong> The chief executive officer of the District Panchayat (Zilla Panchayat). Responsible for implementing all rural development and poverty alleviation programs in the district. Also typically an IAS officer.' }
-    ];
-
-    const questionList = document.getElementById('question-list');
-    const categoryFiltersContainer = document.getElementById('category-filters');
-    const searchInput = document.getElementById('searchInput');
-    let categories = ['all', ...new Set(allQuestionsData.map(q => q.category))];
-
-    function renderQuestions(filterCategory = 'all', searchTerm = '') {
-        questionList.innerHTML = '';
-        const filteredQuestions = allQuestionsData.filter(q => {
-            const inCategory = filterCategory === 'all' || q.category === filterCategory;
-            const matchesSearch = searchTerm === '' || q.text.toLowerCase().includes(searchTerm.toLowerCase());
-            return inCategory && matchesSearch;
-        });
-
-        if (filteredQuestions.length === 0) {
-            questionList.innerHTML = `<p class="text-gray-500 text-center">No questions found for this category or search term.</p>`;
-            return;
-        }
-
-        filteredQuestions.forEach((q, index) => {
-            const card = document.createElement('div');
-            card.className = 'question-card p-4 bg-gray-50 rounded-lg border border-gray-200';
+            <div id="letter-content" class="flex-grow flex flex-col justify-center items-center text-center transition-opacity duration-300">
+                <!-- Content injected via JS -->
+            </div>
             
-            let displayText = q.text;
-            if (searchTerm) {
-                const regex = new RegExp(searchTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi');
-                displayText = displayText.replace(regex, `<mark>${searchTerm}</mark>`);
+            <div class="flex justify-between items-center mt-8 pt-4 border-t border-pink-100">
+                <button id="btn-prev-letter" class="text-pink-400 p-3 hover:bg-pink-50 rounded-full transition">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                
+                <div class="flex space-x-2" id="dots-container"></div>
+                
+                <button id="btn-next-letter" class="bg-pink-500 text-white px-6 py-2 rounded-full shadow-lg active:scale-95 transition font-semibold flex items-center gap-2">
+                    Next <span class="text-xs">❤️</span>
+                </button>
+            </div>
+        </div>
+        
+        <button id="btn-open-notebook" class="mt-6 bg-yellow-100 border-2 border-yellow-300 text-yellow-800 px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition flex items-center gap-2 notebook-font text-xl">
+            📖 Open Notebook
+        </button>
+    </div>
+
+    <!-- 3. Notebook Stage -->
+    <div id="notebook-stage" class="stage bg-gray-900/20 backdrop-blur-sm">
+        <div class="notebook relative" id="notebook-content-area">
+            <div class="red-margin"></div>
+            
+            <!-- Pages injected via JS -->
+            <div id="notebook-pages" class="h-full relative z-20"></div>
+
+            <!-- Decorations -->
+            <div class="sticker -top-4 -right-2 text-5xl">📌</div>
+            <div class="sticker bottom-20 -right-6 text-5xl rotate-12">❤️</div>
+        </div>
+
+        <div class="mt-8 flex flex-col items-center gap-2">
+            <p class="text-white text-sm opacity-80 font-medium">Tap left/right side of page to flip</p>
+            <button id="btn-close-notebook" class="text-white underline text-sm bg-black/20 px-4 py-1 rounded-full">Close Notebook</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            /* --- Data --- */
+            const letters = [
+                { title: "My Dearest Rin,", body: "I wanted to make something special just for you. A little digital corner of the world where flowers bloom just for us." },
+                { title: "To My Favorite Person", body: "Every moment with you is a treasure I keep safe in my heart. You make the ordinary feel extraordinary." },
+                { title: "Always,", body: "I love you more than words can say.<br><br>Forever & Always." },
+                { title: "My Safe Place", body: "Whenever the world feels too loud, I just need to think of your smile, and suddenly, everything is quiet and peaceful again." },
+                { title: "Future Us", body: "I can't wait for all the tomorrows we have yet to meet. Coffee dates, lazy Sundays, and growing old together." },
+                { title: "Always,", body: "I love you more than words can say.<br><br>Forever & Always." }
+            ];
+
+            const notebookEntries = [
+                { date: "Chapter 1", text: "This is our story.<br><br>A collection of moments, big and small, that make us who we are." },
+                { date: "Reason #1", text: "Your Laugh.<br><br>It is the best sound in the world. It makes my bad days disappear instantly." },
+                { date: "Reason #2", text: "Your Support.<br><br>Thank you for always believing in me, even when I doubt myself." },
+                { date: "Dreaming", text: "One day, we will go on that trip we always talk about. Just you, me, and the sunset." },
+                { date: "The End?", text: "Never.<br><br>This is just the beginning.<br>I love you!" }
+            ];
+
+            /* --- State --- */
+            let state = {
+                letterIndex: 0,
+                notebookIndex: 0,
+                isEnvelopeOpen: false
+            };
+
+            /* --- DOM Elements --- */
+            const el = {
+                envelopeStage: document.getElementById('envelope-stage'),
+                envelopeWrapper: document.getElementById('envelope-click-target'),
+                envelope: document.getElementById('mainEnvelope'),
+                letterStage: document.getElementById('letter-stage'),
+                notebookStage: document.getElementById('notebook-stage'),
+                letterContent: document.getElementById('letter-content'),
+                dots: document.getElementById('dots-container'),
+                notebookPages: document.getElementById('notebook-pages'),
+                canvas: document.getElementById('flowerCanvas'),
+                // Buttons
+                btnNext: document.getElementById('btn-next-letter'),
+                btnPrev: document.getElementById('btn-prev-letter'),
+                btnOpenNote: document.getElementById('btn-open-notebook'),
+                btnCloseNote: document.getElementById('btn-close-notebook'),
+                notebookArea: document.getElementById('notebook-content-area')
+            };
+
+            /* --- Flower Engine --- */
+            const ctx = el.canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+            const emojis = ['🌸', '🌹', '🌺', '🌷', '✨', '💖'];
+
+            function resize() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                el.canvas.width = width;
+                el.canvas.height = height;
             }
-            
-            const isOriginal = q.original ? '<span class="text-red-500 font-bold ml-1">*</span>' : '';
+            window.addEventListener('resize', resize);
+            resize();
 
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <p class="text-gray-800 pr-4">${displayText}${isOriginal}</p>
-                    <button class="toggle-answer-btn text-sm font-medium text-[#4A5C5A] hover:text-[#8D9B9A] whitespace-nowrap" data-index="${index}">Show Answer</button>
-                </div>
-                <div class="answer-content prose prose-sm max-w-none text-gray-700">
-                    ${q.answer}
-                </div>
-            `;
-            questionList.appendChild(card);
-        });
-    }
-
-    questionList.addEventListener('click', function(e) {
-        if (e.target.classList.contains('toggle-answer-btn')) {
-            const answerDiv = e.target.closest('.question-card').querySelector('.answer-content');
-            const isVisible = answerDiv.style.display === 'block';
-            answerDiv.style.display = isVisible ? 'none' : 'block';
-            e.target.textContent = isVisible ? 'Show Answer' : 'Hide Answer';
-        }
-    });
-
-    function renderCategoryButtons() {
-        categories.slice(1).forEach(cat => {
-            const button = document.createElement('button');
-            button.className = 'px-3 py-1.5 text-sm rounded-md transition-colors duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300';
-            button.dataset.category = cat;
-            button.textContent = cat;
-            categoryFiltersContainer.appendChild(button);
-        });
-    }
-    
-    categoryFiltersContainer.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            const category = e.target.dataset.category;
-            document.querySelectorAll('#category-filters button').forEach(btn => {
-                btn.classList.remove('category-button-active');
-                btn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-            });
-            e.target.classList.add('category-button-active');
-            e.target.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-            renderQuestions(category, searchInput.value);
-        }
-    });
-
-    searchInput.addEventListener('input', () => {
-        const activeCategoryButton = document.querySelector('#category-filters button.category-button-active');
-        const activeCategory = activeCategoryButton ? activeCategoryButton.dataset.category : 'all';
-        renderQuestions(activeCategory, searchInput.value);
-    });
-
-    renderCategoryButtons();
-    renderQuestions();
-
-    const tabs = document.querySelectorAll('[data-tab]');
-    const contentSections = document.querySelectorAll('.content-section');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const target = tab.dataset.tab;
-            
-            tabs.forEach(t => {
-                t.classList.remove('tab-active');
-                t.classList.add('tab-inactive');
-            });
-            tab.classList.add('tab-active');
-            tab.classList.remove('tab-inactive');
-            
-            contentSections.forEach(section => {
-                section.classList.remove('active');
-                if (section.id === target) {
-                    section.classList.add('active');
+            class Particle {
+                constructor(x, y, type, burst) {
+                    this.x = x;
+                    this.y = y;
+                    this.type = type;
+                    this.size = Math.random() * 20 + 10;
+                    this.speedY = Math.random() * 2 + 1 + (burst ? 2 : 0);
+                    this.speedX = Math.random() * 2 - 1;
+                    this.rotation = Math.random() * 360;
+                    this.spin = Math.random() * 2 - 1;
                 }
-            });
-        });
-    });
+                update() {
+                    this.y += this.speedY;
+                    this.x += Math.sin(this.y * 0.01) + this.speedX;
+                    this.rotation += this.spin;
+                }
+                draw() {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.rotation * Math.PI / 180);
+                    ctx.font = `${this.size}px serif`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(this.type, 0, 0);
+                    ctx.restore();
+                }
+            }
 
-    const topicCounts = allQuestionsData.reduce((acc, q) => {
-        acc[q.category] = (acc[q.category] || 0) + 1;
-        return acc;
-    }, {});
-    
-    const ctx = document.getElementById('topicChart').getContext('2d');
-    const topicChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(topicCounts),
-            datasets: [{
-                label: 'Number of Questions',
-                data: Object.values(topicCounts),
-                backgroundColor: [
-                    '#8D9B9A', '#B0A99A', '#4A5C5A', '#D9D2C5',
-                    '#A5A996', '#7B886F', '#C4BBAF'
-                ],
-                borderColor: '#FDFBF8',
-                borderWidth: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        font: {
-                            family: 'Inter'
-                        },
-                        boxWidth: 15,
-                        padding: 15
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.update();
+                    p.draw();
+                    if (p.y > height) particles.splice(i, 1);
+                }
+                requestAnimationFrame(animate);
+            }
+            animate(); // Start loop immediately
+
+            function rainFlowers() {
+                setInterval(() => {
+                    if (state.isEnvelopeOpen && particles.length < 40) {
+                        particles.push(new Particle(Math.random() * width, -30, emojis[Math.floor(Math.random() * emojis.length)], false));
                     }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed !== null) {
-                                label += context.parsed + ' questions';
-                            }
-                            return label;
-                        }
-                    }
+                }, 400);
+            }
+
+            function burstFlowers(emoji) {
+                for(let i=0; i<15; i++) {
+                    particles.push(new Particle(
+                        Math.random() * width, -20, 
+                        emoji || emojis[Math.floor(Math.random() * emojis.length)], 
+                        true
+                    ));
                 }
             }
-        }
-    });
 
-    const startInterviewBtn = document.getElementById('startInterviewBtn');
-    const mockInterviewArea = document.getElementById('mockInterviewArea');
-    const mockQuestionText = document.getElementById('mockQuestionText');
-    const mockAnswerText = document.getElementById('mockAnswerText');
-    const getFeedbackBtn = document.getElementById('getFeedbackBtn');
-    const feedbackLoader = document.getElementById('feedbackLoader');
-    const feedbackArea = document.getElementById('feedbackArea');
+            /* --- Logic --- */
 
-    let currentMockQuestion = null;
+            // 1. Render Letter
+            function renderLetter() {
+                const item = letters[state.letterIndex];
+                el.letterContent.style.opacity = '0';
+                
+                setTimeout(() => {
+                    el.letterContent.innerHTML = `
+                        <h2 class="handwriting text-4xl text-pink-600 mb-4">${item.title}</h2>
+                        <div class="w-16 h-1 bg-pink-200 mb-6 rounded-full"></div>
+                        <p class="text-gray-700 text-lg leading-relaxed font-light">${item.body}</p>
+                    `;
+                    
+                    // Render dots
+                    el.dots.innerHTML = letters.map((_, i) => 
+                        `<div class="h-2 rounded-full transition-all duration-300 ${i === state.letterIndex ? 'bg-pink-500 w-6' : 'bg-pink-200 w-2'}"></div>`
+                    ).join('');
 
-    if(startInterviewBtn) {
-        startInterviewBtn.addEventListener('click', () => {
-            const randomIndex = Math.floor(Math.random() * allQuestionsData.length);
-            currentMockQuestion = allQuestionsData[randomIndex];
-            mockQuestionText.textContent = currentMockQuestion.text;
-            mockAnswerText.value = '';
-            feedbackArea.innerHTML = '';
-            feedbackArea.classList.add('hidden');
-            mockInterviewArea.classList.remove('hidden');
-        });
-    }
-
-    if(getFeedbackBtn) {
-        getFeedbackBtn.addEventListener('click', () => {
-            const userAnswer = mockAnswerText.value;
-            if (!userAnswer.trim()) {
-                alert('Please provide an answer before getting feedback.');
-                return;
+                    el.letterContent.style.opacity = '1';
+                }, 200);
             }
-            getFeedbackFromGemini(currentMockQuestion.text, userAnswer);
-        });
-    }
 
-    async function getFeedbackFromGemini(question, answer) {
-        feedbackLoader.style.display = 'flex';
-        feedbackArea.classList.add('hidden');
-        getFeedbackBtn.disabled = true;
+            // 2. Render Notebook
+            function renderNotebook() {
+                const item = notebookEntries[state.notebookIndex];
+                el.notebookPages.innerHTML = `
+                    <div class="notebook-page active-page">
+                        <div class="border-b-2 border-gray-300 mb-6 pb-2 flex justify-between items-end">
+                            <span class="text-gray-400 text-sm italic">Date: Today</span>
+                            <span class="notebook-font text-2xl text-pink-600">${item.date}</span>
+                        </div>
+                        <p class="notebook-font text-2xl text-gray-800 leading-loose">
+                            ${item.text}
+                        </p>
+                        <div class="mt-auto text-center text-gray-400 text-xs uppercase tracking-widest">
+                            Page ${state.notebookIndex + 1} / ${notebookEntries.length}
+                        </div>
+                    </div>
+                `;
+            }
 
-        const systemPrompt = `You are an expert medical school professor and interview coach for the GPSC Medical Officer exam in Gujarat, India. A candidate has provided an answer to an interview question. 
-        Your task is to provide constructive feedback.
-        The response should be in markdown format and structured as follows:
-        ### Feedback on Your Answer
-        - **Strengths:** (2-3 bullet points on what was good about the answer)
-        - **Areas for Improvement:** (2-3 bullet points on how to improve the answer, focusing on structure, clarity, and including key technical terms)
-        ### Model Answer
-        (Provide a well-structured, comprehensive model answer for the question.)`;
-        const userQuery = `Question: "${question}"\n\nCandidate's Answer: "${answer}"`;
-        const feedback = await callGeminiAPI(systemPrompt, userQuery);
+            /* --- Event Handlers --- */
 
-        feedbackArea.innerHTML = feedback;
-        feedbackLoader.style.display = 'none';
-        feedbackArea.classList.remove('hidden');
-        getFeedbackBtn.disabled = false;
-    }
-
-    async function callGeminiAPI(systemInstructionText, userQuery, retries = 3, delay = 1000) {
-        const apiKey = "";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-        const payload = {
-            contents: [{ parts: [{ text: userQuery }] }],
-            systemInstruction: { parts: [{ text: systemInstructionText }] },
-        };
-
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            // Open Envelope
+            el.envelopeWrapper.addEventListener('click', () => {
+                if (state.isEnvelopeOpen) return;
+                state.isEnvelopeOpen = true;
+                
+                // Visuals
+                el.envelope.classList.add('open');
+                rainFlowers(); // Start rain
+                
+                // Transition
+                setTimeout(() => {
+                    el.envelopeStage.style.opacity = '0';
+                    setTimeout(() => {
+                        el.envelopeStage.style.display = 'none';
+                        el.letterStage.classList.add('active');
+                        burstFlowers();
+                    }, 500);
+                }, 1000);
             });
 
-            if (!response.ok) {
-                 if (response.status === 429 && retries > 0) {
-                    await new Promise(res => setTimeout(res, delay));
-                    return callGeminiAPI(systemInstructionText, userQuery, retries - 1, delay * 2);
+            // Letter Navigation
+            el.btnNext.addEventListener('click', () => {
+                state.letterIndex = (state.letterIndex + 1) % letters.length;
+                renderLetter();
+                burstFlowers();
+            });
+
+            el.btnPrev.addEventListener('click', () => {
+                state.letterIndex = (state.letterIndex - 1 + letters.length) % letters.length;
+                renderLetter();
+            });
+
+            // Notebook Navigation (Tap Sides)
+            el.notebookArea.addEventListener('click', (e) => {
+                const rect = el.notebookArea.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                if (x > rect.width / 2) {
+                    // Next Page
+                    if (state.notebookIndex < notebookEntries.length - 1) {
+                        state.notebookIndex++;
+                        renderNotebook();
+                        burstFlowers('✨');
+                    }
+                } else {
+                    // Prev Page
+                    if (state.notebookIndex > 0) {
+                        state.notebookIndex--;
+                        renderNotebook();
+                    }
                 }
-                throw new Error(`API call failed with status: ${response.status}`);
-            }
+            });
 
-            const result = await response.json();
-            const candidate = result.candidates?.[0];
-            let text = candidate?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response. Please try again.";
-             // Simple markdown to HTML
-            text = text.replace(/### (.*)/g, '<h3 class="font-semibold text-lg mb-2">$1</h3>')
-                       .replace(/## (.*)/g, '<h2 class="font-bold text-xl mb-3">$1</h2>')
-                       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                       .replace(/\* ([^*]+)/g, '<li class="ml-4">$1</li>')
-                       .replace(/\n/g, '<br>');
+            // Switch Stages
+            el.btnOpenNote.addEventListener('click', () => {
+                el.letterStage.classList.remove('active');
+                el.letterStage.classList.add('hidden-left');
+                
+                setTimeout(() => {
+                    el.notebookStage.classList.add('active');
+                    burstFlowers('📖');
+                }, 300);
+            });
 
-            return text;
+            el.btnCloseNote.addEventListener('click', () => {
+                el.notebookStage.classList.remove('active');
+                
+                setTimeout(() => {
+                    el.letterStage.classList.remove('hidden-left');
+                    el.letterStage.classList.add('active');
+                }, 300);
+            });
 
-        } catch (error) {
-            console.error(error);
-             if (retries > 0) {
-                await new Promise(res => setTimeout(res, delay));
-                return callGeminiAPI(systemInstructionText, userQuery, retries - 1, delay * 2);
-            }
-            return "An error occurred while fetching the response. Please check the console for details.";
-        }
-    }
-
-});
-</script>
-
+            // Initialize content
+            renderLetter();
+            renderNotebook();
+        });
+    </script>
 </body>
 </html>
-
